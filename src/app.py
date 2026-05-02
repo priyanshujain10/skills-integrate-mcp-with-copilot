@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker, relationship, Mapped, mapped_column
 from fastapi import Depends
 
 app = FastAPI(title="Mergington High School API",
@@ -32,34 +32,34 @@ Base = declarative_base()
 # Models
 class Club(Base):
     __tablename__ = "clubs"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    events = relationship("Event", back_populates="club")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    events: Mapped[list["Event"]] = relationship("Event", back_populates="club")
 
 class Event(Base):
     __tablename__ = "events"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    description = Column(Text)
-    schedule = Column(String)
-    max_participants = Column(Integer)
-    club_id = Column(Integer, ForeignKey("clubs.id"))
-    club = relationship("Club", back_populates="events")
-    attendances = relationship("Attendance", back_populates="event")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text)
+    schedule: Mapped[str] = mapped_column(String)
+    max_participants: Mapped[int] = mapped_column(Integer)
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id"))
+    club: Mapped["Club"] = relationship("Club", back_populates="events")
+    attendances: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="event")
 
 class Student(Base):
     __tablename__ = "students"
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    attendances = relationship("Attendance", back_populates="student")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    attendances: Mapped[list["Attendance"]] = relationship("Attendance", back_populates="student")
 
 class Attendance(Base):
     __tablename__ = "attendances"
-    id = Column(Integer, primary_key=True, index=True)
-    event_id = Column(Integer, ForeignKey("events.id"))
-    student_id = Column(Integer, ForeignKey("students.id"))
-    event = relationship("Event", back_populates="attendances")
-    student = relationship("Student", back_populates="attendances")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"))
+    student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"))
+    event: Mapped["Event"] = relationship("Event", back_populates="attendances")
+    student: Mapped["Student"] = relationship("Student", back_populates="attendances")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -178,8 +178,7 @@ def signup_for_activity(activity_name: str, email: str, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail="Student is already signed up")
 
     # Check max participants
-    current_count = db.query(Attendance).filter(Attendance.event_id == event.id).count()
-    if current_count >= event.max_participants:
+    if len(event.attendances) >= event.max_participants:
         raise HTTPException(status_code=400, detail="Activity is full")
 
     # Add attendance
